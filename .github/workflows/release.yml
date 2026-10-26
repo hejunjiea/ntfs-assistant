@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要发布的 tag，例如 v1.0.1"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 构建并发布
+    runs-on: macos-15
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 确定版本号
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "发布版本: $TAG"
+
+      - name: 显示构建环境
+        run: |
+          xcodebuild -version
+          sw_vers
+
+      - name: 构建 Release 通用二进制
+        run: |
+          xcodebuild \
+            -project "NTFS助手.xcodeproj" \
+            -scheme "NTFS助手" \
+            -configuration Release \
+            -derivedDataPath build/release \
+            -skipMacroValidation \
+            ARCHS="arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      # 未签名的 App 在 Apple 芯片上无法启动，构建后统一做 ad-hoc 签名
+      - name: ad-hoc 签名并校验
+        run: |
+          APP="build/release/Build/Products/Release/NTFS助手.app"
+          test -d "$APP" || { echo "构建产物不存在"; exit 1; }
+          codesign --force --sign - "$APP"
+          codesign --verify --verbose=2 "$APP"
+          lipo -info "$APP/Contents/MacOS/NTFS助手"
+          lipo -info "$APP/Contents/MacOS/NTFS助手" | grep -q "x86_64 arm64" \
+            || { echo "未能生成通用二进制"; exit 1; }
+
+      - name: 打包分发包
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          mkdir -p "dist/NTFS助手"
+          ditto "build/release/Build/Products/Release/NTFS助手.app" "dist/NTFS助手/NTFS助手.app"
+          cp "使用说明.txt" "dist/NTFS助手/"
+          ditto -c -k --sequesterRsrc --keepParent "dist/NTFS助手" "dist/NTFS-Assistant-${TAG}.zip"
+          ls -lh "dist/NTFS-Assistant-${TAG}.zip"
+          unzip -l "dist/NTFS-Assistant-${TAG}.zip" | head -8
+
+      - name: 创建或更新 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在，将覆盖资产"
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          fi
+          gh release upload "$TAG" "dist/NTFS-Assistant-${TAG}.zip" --clobber
+
+      - name: 输出下载地址
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          gh release view "$TAG" --json url -q '.url'

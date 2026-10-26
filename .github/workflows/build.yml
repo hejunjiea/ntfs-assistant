@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 编译验证
+    runs-on: macos-15
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 显示构建环境
+        run: |
+          xcodebuild -version
+          sw_vers
+
+      - name: 编译
+        run: |
+          xcodebuild \
+            -project "NTFS助手.xcodeproj" \
+            -scheme "NTFS助手" \
+            -configuration Debug \
+            -derivedDataPath build/DerivedData \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: 检查产物
+        run: |
+          APP="build/DerivedData/Build/Products/Debug/NTFS助手.app"
+          test -d "$APP" || { echo "构建产物不存在"; exit 1; }
+          grep -A1 LSMinimumSystemVersion "$APP/Contents/Info.plist" || true
+          echo "编译验证通过"
