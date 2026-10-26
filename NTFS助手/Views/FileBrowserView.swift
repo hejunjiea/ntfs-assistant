@@ -49,32 +49,11 @@ struct FileBrowserView: View {
                 Text("\(pendingDelete.count) 项将被永久删除，无法从废纸篓恢复。")
             }
         }
-        .alert("目标位置已存在同名文件", isPresented: conflictPresented) {
-            Button("覆盖", role: .destructive) { transfer.resolveConflict(.replace) }
-            Button("保留两者") { transfer.resolveConflict(.keepBoth) }
-            Button("跳过重名") { transfer.resolveConflict(.skip) }
-            Button("取消", role: .cancel) { transfer.cancelConflict() }
-        } message: {
-            Text(conflictMessage)
+        .sheet(item: $transfer.pendingConflict) { prompt in
+            ConflictSheet(prompt: prompt,
+                          onResolve: { policy in transfer.resolveConflict(policy) },
+                          onCancel: { transfer.cancelConflict() })
         }
-    }
-
-    private var conflictPresented: Binding<Bool> {
-        Binding(
-            get: { transfer.pendingConflict != nil },
-            set: { if !$0 { transfer.pendingConflict = nil } }
-        )
-    }
-
-    private var conflictMessage: String {
-        guard let prompt = transfer.pendingConflict else { return "" }
-        let shown = prompt.conflictingNames.prefix(3).joined(separator: "、")
-        let more = prompt.conflictingNames.count > 3 ? " 等 \(prompt.conflictingNames.count) 项" : ""
-        var text = "「\(shown)」\(more) 在目标目录中已存在。本次共 \(prompt.urls.count) 项待传输，请选择处理方式。"
-        if !prompt.folderConflicts.isEmpty {
-            text += "\n\n注意：其中 \(prompt.folderConflicts.count) 项是文件夹，选择「覆盖」会删除该文件夹内的全部内容。"
-        }
-        return text
     }
 
     // MARK: - 工具栏
