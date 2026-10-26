@@ -5,6 +5,7 @@ macOS 上让 NTFS 磁盘可读写的图形化工具。系统原生只支持 NTFS
 ![macOS](https://img.shields.io/badge/macOS-14.0%2B-blue)
 ![Architecture](https://img.shields.io/badge/arch-arm64%20%7C%20x86__64-lightgrey)
 ![Swift](https://img.shields.io/badge/Swift-5.0-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ## 功能特性
 
@@ -137,4 +138,4 @@ NTFS助手/
 
 ## 许可证
 
-本项目尚未指定开源许可证。如需在他人项目中使用，请先联系作者。
+本项目基于 [MIT License](LICENSE) 开源，可自由使用、修改与分发，保留版权声明即可。
