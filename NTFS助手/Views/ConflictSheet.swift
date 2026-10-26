@@ -97,15 +97,11 @@ struct ConflictSheet: View {
                     Button(policy.title) { overrides[name] = policy }
                 }
             } label: {
-                HStack(spacing: 2) {
-                    Text(overrides[name]?.title ?? "跟随统一")
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 8))
-                }
-                .font(.system(size: 11))
+                Text(overrides[name]?.title ?? "跟随统一")
+                    .font(.system(size: 11))
             }
             .menuStyle(.borderlessButton)
-            .frame(width: 88)
+            .frame(width: 76)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

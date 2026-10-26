@@ -76,6 +76,13 @@ struct ContentView: View {
                 browser.setRoot(updated.mountPath)
             }
         }
+        .sheet(item: $transfer.pendingConflict) { prompt in
+            ConflictSheet(prompt: prompt,
+                          onConfirm: { policy, overrides in
+                              transfer.resolveConflict(defaultPolicy: policy, overrides: overrides)
+                          },
+                          onCancel: { transfer.cancelConflict() })
+        }
     }
 
     /// 启动时检测依赖，缺失时提示安装，避免挂载失败后才发现

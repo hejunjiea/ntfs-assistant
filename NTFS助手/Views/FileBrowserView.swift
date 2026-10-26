@@ -49,13 +49,6 @@ struct FileBrowserView: View {
                 Text("\(pendingDelete.count) 项将被永久删除，无法从废纸篓恢复。")
             }
         }
-        .sheet(item: $transfer.pendingConflict) { prompt in
-            ConflictSheet(prompt: prompt,
-                          onConfirm: { policy, overrides in
-                              transfer.resolveConflict(defaultPolicy: policy, overrides: overrides)
-                          },
-                          onCancel: { transfer.cancelConflict() })
-        }
     }
 
     // MARK: - 工具栏
