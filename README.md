@@ -69,7 +69,7 @@ brew install ntfs-3g-mac
 
 ### 2. 下载并放行
 
-从 [Releases](https://github.com/hejunjiea/ntfs-assistant/releases) 下载 `NTFS助手.zip`，解压后拖入「应用程序」。
+从 [Releases](https://github.com/hejunjiea/ntfs-assistant/releases) 下载 `NTFS-Assistant-v1.0.0.zip`，解压后拖入「应用程序」。
 
 由于本项目使用 ad-hoc 签名（未购买 Apple 开发者证书），首次打开会提示"无法验证开发者"：
 
