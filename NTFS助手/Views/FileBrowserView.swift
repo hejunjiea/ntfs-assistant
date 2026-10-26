@@ -70,7 +70,11 @@ struct FileBrowserView: View {
         guard let prompt = transfer.pendingConflict else { return "" }
         let shown = prompt.conflictingNames.prefix(3).joined(separator: "、")
         let more = prompt.conflictingNames.count > 3 ? " 等 \(prompt.conflictingNames.count) 项" : ""
-        return "「\(shown)」\(more) 在目标目录中已存在。本次共 \(prompt.urls.count) 项待传输，请选择处理方式。"
+        var text = "「\(shown)」\(more) 在目标目录中已存在。本次共 \(prompt.urls.count) 项待传输，请选择处理方式。"
+        if !prompt.folderConflicts.isEmpty {
+            text += "\n\n注意：其中 \(prompt.folderConflicts.count) 项是文件夹，选择「覆盖」会删除该文件夹内的全部内容。"
+        }
+        return text
     }
 
     // MARK: - 工具栏
