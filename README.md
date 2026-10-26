@@ -6,6 +6,7 @@ macOS 上让 NTFS 磁盘可读写的图形化工具。系统原生只支持 NTFS
 ![Architecture](https://img.shields.io/badge/arch-arm64%20%7C%20x86__64-lightgrey)
 ![Swift](https://img.shields.io/badge/Swift-5.0-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
+[![Build](https://github.com/hejunjiea/ntfs-assistant/actions/workflows/build.yml/badge.svg)](https://github.com/hejunjiea/ntfs-assistant/actions/workflows/build.yml)
 
 ## 功能特性
 
@@ -102,7 +103,25 @@ xattr -dr com.apple.quarantine "/Applications/NTFS助手.app"
 构建产物：
 
 - Debug：`build/DerivedData/Build/Products/Debug/NTFS助手.app`
-- 分发包：`dist/NTFS助手.zip`（含 App 与使用说明）
+- 本地分发包：`dist/NTFS助手.zip`（含 App 与使用说明）
+
+## 发布新版本
+
+推送 `v*` 格式的 tag 会自动触发 Actions 构建并发布：
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+工作流会构建通用二进制、做 ad-hoc 签名、打包为 `NTFS-Assistant-<tag>.zip`，并创建对应的 GitHub Release。也可以在 Actions 页面手动运行 `Release` 工作流并填入已有 tag，用于重建或补传资产。
+
+自动化流程：
+
+| 工作流 | 触发条件 | 作用 |
+|---|---|---|
+| `Build` | push 到 `main`、提交 PR | 编译验证，不产出发布包 |
+| `Release` | 推送 `v*` tag、手动触发 | 构建、签名、打包并发布 Release |
 
 ## 项目结构
 
