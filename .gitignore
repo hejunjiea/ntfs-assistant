@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Xcode 与构建产物
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# 分发产物
+dist/
