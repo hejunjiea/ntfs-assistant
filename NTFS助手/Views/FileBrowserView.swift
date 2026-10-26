@@ -51,7 +51,9 @@ struct FileBrowserView: View {
         }
         .sheet(item: $transfer.pendingConflict) { prompt in
             ConflictSheet(prompt: prompt,
-                          onResolve: { policy in transfer.resolveConflict(policy) },
+                          onConfirm: { policy, overrides in
+                              transfer.resolveConflict(defaultPolicy: policy, overrides: overrides)
+                          },
                           onCancel: { transfer.cancelConflict() })
         }
     }

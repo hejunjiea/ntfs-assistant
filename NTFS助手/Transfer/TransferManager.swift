@@ -72,14 +72,19 @@ final class TransferManager: ObservableObject {
                                              folderConflicts: folderConflicts)
             return
         }
-        addTasks(for: valid, destDir: destDir, policy: .keepBoth)
+        addTasks(for: valid, destDir: destDir, conflictNames: []) { _ in .keepBoth }
     }
 
-    /// 用户选定同名处理策略后继续入队
-    func resolveConflict(_ policy: ConflictPolicy) {
+    /// 用户确认后入队。defaultPolicy 为统一策略，overrides 按文件名单独覆盖。
+    /// 只有重名项会被「跳过」，非重名项始终传输。
+    func resolveConflict(defaultPolicy: ConflictPolicy, overrides: [String: ConflictPolicy]) {
         guard let prompt = pendingConflict else { return }
         pendingConflict = nil
-        addTasks(for: prompt.urls, destDir: prompt.destDir, policy: policy)
+        addTasks(for: prompt.urls,
+                 destDir: prompt.destDir,
+                 conflictNames: Set(prompt.conflictingNames)) { name in
+            overrides[name] ?? defaultPolicy
+        }
     }
 
     func cancelConflict() {
@@ -87,21 +92,23 @@ final class TransferManager: ObservableObject {
         logs.add("⏹ 已取消本次传输")
     }
 
-    private func addTasks(for urls: [URL], destDir: String, policy: ConflictPolicy) {
-        var list = urls
-        if policy == .skip {
-            list = urls.filter {
-                !fileManager.fileExists(atPath: (destDir as NSString).appendingPathComponent($0.lastPathComponent))
-            }
-            if list.count < urls.count {
-                logs.add("⏭ 已跳过 \(urls.count - list.count) 项同名文件")
-            }
+    private func addTasks(for urls: [URL], destDir: String,
+                          conflictNames: Set<String>,
+                          policyFor: (String) -> ConflictPolicy) {
+        let list = urls.filter { url in
+            let name = url.lastPathComponent
+            // 非重名项不受「跳过」影响
+            guard conflictNames.contains(name) else { return true }
+            return policyFor(name) != .skip
+        }
+        if list.count < urls.count {
+            logs.add("⏭ 已跳过 \(urls.count - list.count) 项同名文件")
         }
         guard !list.isEmpty else { return }
 
         let newTasks = list.map {
             TransferTask(fileName: $0.lastPathComponent, sourceURL: $0,
-                         destDir: destDir, conflictPolicy: policy)
+                         destDir: destDir, conflictPolicy: policyFor($0.lastPathComponent))
         }
         tasks.append(contentsOf: newTasks)
         hasNotifiedBatch = false

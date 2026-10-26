@@ -10,13 +10,21 @@ enum TransferState: Equatable {
 }
 
 /// 目标位置存在同名项时的处理方式
-enum ConflictPolicy {
+enum ConflictPolicy: Hashable {
     /// 覆盖已有文件（危险，需用户显式确认）
     case replace
     /// 保留两者，新文件自动追加序号
     case keepBoth
     /// 跳过重名项
     case skip
+
+    var title: String {
+        switch self {
+        case .replace: return "覆盖"
+        case .keepBoth: return "保留两者"
+        case .skip: return "跳过"
+        }
+    }
 }
 
 /// 单个文件/文件夹的传输任务
