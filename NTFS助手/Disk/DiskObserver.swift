@@ -178,6 +178,24 @@ final class DiskObserver: ObservableObject {
         return candidates.first { fileManager.fileExists(atPath: $0) } ?? name
     }
 
+    /// 挂载失败时自检依赖，给出可操作的原因，而不是笼统的“操作失败”
+    private func diagnoseFailure() {
+        let drivers = ["/usr/local/sbin/ntfs-3g", "/opt/homebrew/bin/ntfs-3g", "/usr/local/bin/ntfs-3g"]
+        let hasDriver = drivers.contains { fileManager.fileExists(atPath: $0) }
+        let hasFUSE = fileManager.fileExists(atPath: "/Library/Filesystems/macfuse.fs")
+
+        var missing: [String] = []
+        if !hasDriver { missing.append("ntfs-3g") }
+        if !hasFUSE { missing.append("macFUSE") }
+
+        if !missing.isEmpty {
+            logs.add("❌ 挂载失败：未检测到 \(missing.joined(separator: " 和 "))。请按配置向导安装后重启再试")
+        } else {
+            logs.add("❌ 挂载失败：磁盘可能正被其他程序占用。请关闭访达窗口与 Spotlight 索引后重试；"
+                     + "若仍失败，右键该磁盘选择「卸载并恢复只读」再重新接管")
+        }
+    }
+
     /// 通过 osascript 以管理员权限执行（会触发系统授权弹窗）
     private func execute(_ command: String, successMessage: String? = nil) {
         isBusy = true
@@ -197,7 +215,7 @@ final class DiskObserver: ObservableObject {
                         NotificationService.shared.notify(title: "NTFS助手", body: successMessage)
                     }
                 } else {
-                    self.logs.add("❌ 操作失败或管理员授权被取消")
+                    self.diagnoseFailure()
                 }
                 self.scan { self.isBusy = false }
             }

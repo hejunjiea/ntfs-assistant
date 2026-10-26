@@ -7,6 +7,16 @@ import Darwin
 final class TransferManager: ObservableObject {
     @Published private(set) var tasks: [TransferTask] = []
     @Published private(set) var isActive = false
+    /// 存在同名文件时等待用户选择处理方式
+    @Published var pendingConflict: ConflictPrompt?
+
+    /// 冲突确认请求
+    struct ConflictPrompt: Identifiable {
+        let id = UUID()
+        let urls: [URL]
+        let destDir: String
+        let conflictingNames: [String]
+    }
 
     /// 传输完成后用于刷新文件列表
     weak var browser: FileBrowserModel?
@@ -44,8 +54,44 @@ final class TransferManager: ObservableObject {
         }
         guard !valid.isEmpty else { return }
 
-        let newTasks = valid.map {
-            TransferTask(fileName: $0.lastPathComponent, sourceURL: $0, destDir: destDir)
+        // 目标存在同名项时先询问用户，而不是静默加序号
+        let conflicts = valid.map { $0.lastPathComponent }.filter {
+            fileManager.fileExists(atPath: (destDir as NSString).appendingPathComponent($0))
+        }
+        if !conflicts.isEmpty {
+            pendingConflict = ConflictPrompt(urls: valid, destDir: destDir, conflictingNames: conflicts)
+            return
+        }
+        addTasks(for: valid, destDir: destDir, policy: .keepBoth)
+    }
+
+    /// 用户选定同名处理策略后继续入队
+    func resolveConflict(_ policy: ConflictPolicy) {
+        guard let prompt = pendingConflict else { return }
+        pendingConflict = nil
+        addTasks(for: prompt.urls, destDir: prompt.destDir, policy: policy)
+    }
+
+    func cancelConflict() {
+        pendingConflict = nil
+        logs.add("⏹ 已取消本次传输")
+    }
+
+    private func addTasks(for urls: [URL], destDir: String, policy: ConflictPolicy) {
+        var list = urls
+        if policy == .skip {
+            list = urls.filter {
+                !fileManager.fileExists(atPath: (destDir as NSString).appendingPathComponent($0.lastPathComponent))
+            }
+            if list.count < urls.count {
+                logs.add("⏭ 已跳过 \(urls.count - list.count) 项同名文件")
+            }
+        }
+        guard !list.isEmpty else { return }
+
+        let newTasks = list.map {
+            TransferTask(fileName: $0.lastPathComponent, sourceURL: $0,
+                         destDir: destDir, conflictPolicy: policy)
         }
         tasks.append(contentsOf: newTasks)
         hasNotifiedBatch = false
@@ -145,7 +191,7 @@ final class TransferManager: ObservableObject {
             return
         }
 
-        let destPath = uniquePath(for: task.fileName, in: task.destDir)
+        let destPath = resolveDestination(for: task)
         DispatchQueue.main.async {
             self.updateTask(taskID) {
                 $0.bytesTotal = total
@@ -317,6 +363,23 @@ final class TransferManager: ObservableObject {
             return nil
         }
         return values.volumeAvailableCapacityForImportantUsage
+    }
+
+    /// 按冲突策略决定实际写入路径
+    private func resolveDestination(for task: TransferTask) -> String {
+        let target = (task.destDir as NSString).appendingPathComponent(task.fileName)
+        switch task.conflictPolicy {
+        case .replace:
+            // 用户已明确选择覆盖，先移除同名项（目录会被整体移除）
+            if fileManager.fileExists(atPath: target) {
+                try? fileManager.removeItem(atPath: target)
+            }
+            return target
+        case .keepBoth, .skip:
+            return fileManager.fileExists(atPath: target)
+                ? uniquePath(for: task.fileName, in: task.destDir)
+                : target
+        }
     }
 
     private func uniquePath(for fileName: String, in directory: String) -> String {

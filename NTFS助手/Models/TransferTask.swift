@@ -9,6 +9,16 @@ enum TransferState: Equatable {
     case cancelled    // 已取消
 }
 
+/// 目标位置存在同名项时的处理方式
+enum ConflictPolicy {
+    /// 覆盖已有文件（危险，需用户显式确认）
+    case replace
+    /// 保留两者，新文件自动追加序号
+    case keepBoth
+    /// 跳过重名项
+    case skip
+}
+
 /// 单个文件/文件夹的传输任务
 struct TransferTask: Identifiable, Equatable {
     let id = UUID()
@@ -16,6 +26,8 @@ struct TransferTask: Identifiable, Equatable {
     let sourceURL: URL
     /// 目标目录
     let destDir: String
+    /// 同名冲突的处理策略
+    var conflictPolicy: ConflictPolicy = .keepBoth
     /// 实际写入路径（重名时会追加序号）
     var destPath: String = ""
 
