@@ -160,9 +160,13 @@ final class TransferManager: ObservableObject {
         hasNotifiedBatch = true
         let completed = tasks.filter { $0.state == .completed }.count
         let failed = tasks.filter { $0.state == .failed }.count
-        let body = failed > 0
-            ? "完成 \(completed) 项，失败 \(failed) 项"
-            : "全部 \(completed) 项传输完成"
+        let skipped = tasks.filter { $0.state == .skipped }.count
+
+        var parts: [String] = []
+        if completed > 0 { parts.append("完成 \(completed) 项") }
+        if failed > 0 { parts.append("失败 \(failed) 项") }
+        if skipped > 0 { parts.append("跳过 \(skipped) 项") }
+        let body = parts.isEmpty ? "没有可传输的文件" : parts.joined(separator: "，")
         NotificationService.shared.notify(title: "传输结束", body: body)
     }
 
@@ -191,7 +195,22 @@ final class TransferManager: ObservableObject {
             return
         }
 
-        let destPath = resolveDestination(for: task)
+        let destPath: String
+        switch resolveDestination(for: task) {
+        case .rejected(let reason):
+            DispatchQueue.main.async {
+                self.updateTask(taskID) {
+                    $0.state = .skipped
+                    $0.message = reason
+                }
+                self.logs.add("⏭ 已跳过 \(task.fileName)：\(reason)")
+                self.finishCurrent(taskID: taskID)
+            }
+            return
+        case .ready(let path):
+            destPath = path
+        }
+
         DispatchQueue.main.async {
             self.updateTask(taskID) {
                 $0.bytesTotal = total
@@ -365,20 +384,28 @@ final class TransferManager: ObservableObject {
         return values.volumeAvailableCapacityForImportantUsage
     }
 
-    /// 按冲突策略决定实际写入路径
-    private func resolveDestination(for task: TransferTask) -> String {
+    private enum Destination {
+        case ready(String)
+        case rejected(String)
+    }
+
+    /// 按冲突策略决定实际写入路径。
+    /// 覆盖模式遇到同名文件夹时拒绝执行，避免把整个目录连同内容一起删掉。
+    private func resolveDestination(for task: TransferTask) -> Destination {
         let target = (task.destDir as NSString).appendingPathComponent(task.fileName)
+        guard fileManager.fileExists(atPath: target) else { return .ready(target) }
+
         switch task.conflictPolicy {
         case .replace:
-            // 用户已明确选择覆盖，先移除同名项（目录会被整体移除）
-            if fileManager.fileExists(atPath: target) {
-                try? fileManager.removeItem(atPath: target)
+            var isDirectory: ObjCBool = false
+            fileManager.fileExists(atPath: target, isDirectory: &isDirectory)
+            if isDirectory.boolValue {
+                return .rejected("目标位置同名项是文件夹，已拒绝覆盖")
             }
-            return target
+            try? fileManager.removeItem(atPath: target)
+            return .ready(target)
         case .keepBoth, .skip:
-            return fileManager.fileExists(atPath: target)
-                ? uniquePath(for: task.fileName, in: task.destDir)
-                : target
+            return .ready(uniquePath(for: task.fileName, in: task.destDir))
         }
     }
 

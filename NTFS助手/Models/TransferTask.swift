@@ -7,6 +7,7 @@ enum TransferState: Equatable {
     case completed    // 已完成
     case failed       // 失败
     case cancelled    // 已取消
+    case skipped      // 已跳过（例如同名目标是文件夹时拒绝覆盖）
 }
 
 /// 目标位置存在同名项时的处理方式
@@ -43,7 +44,7 @@ struct TransferTask: Identifiable, Equatable {
     var message: String?
 
     var isFinished: Bool {
-        state == .completed || state == .failed || state == .cancelled
+        state == .completed || state == .failed || state == .cancelled || state == .skipped
     }
 
     var speedText: String {

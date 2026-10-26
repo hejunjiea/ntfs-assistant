@@ -112,6 +112,7 @@ struct TransferPanel: View {
         case .completed: return "checkmark.circle.fill"
         case .failed: return "exclamationmark.triangle.fill"
         case .cancelled: return "slash.circle"
+        case .skipped: return "minus.circle.fill"
         }
     }
 
@@ -122,6 +123,7 @@ struct TransferPanel: View {
         case .completed: return .green
         case .failed: return .red
         case .cancelled: return .orange
+        case .skipped: return .secondary
         }
     }
 
@@ -132,6 +134,7 @@ struct TransferPanel: View {
         case .completed: return "完成"
         case .failed: return "失败"
         case .cancelled: return "已取消"
+        case .skipped: return "已跳过"
         }
     }
 }
